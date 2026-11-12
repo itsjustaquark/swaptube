@@ -3,10 +3,12 @@
 #include "color.cuh"
 #include "common_graphics.cuh"
 #include "complex_functions.cuh"
+#include "fractal_sdf.cuh"
+#include "postprocess.cuh"
 #include <stdio.h>
 
-const float EPSILON = 2e-4f;
-const float MAXITERS = 50;
+const float STEPSILON = 1e-5f;
+const float MAXITERS = 75;
 
 __device__ uint32_t getColor(){
     return 0xffffffff;
@@ -21,6 +23,7 @@ __device__ __forceinline__ uint32_t vec3_to_argb(float alpha, const Cuda::vec3& 
 }
 
 __device__ float iteration_band_normalize(float iters, float power, float bailout_radius_sq, float focus_n, float focus_spread){
+    iters = 2.0f * sqrtf(iters - 1.0f);
     float x = powf(bailout_radius_sq, powf(power, -iters - 1));
     return /*exp2f(-((iters - focus_n) * (iters - focus_n)) / focus_spread)*/ 1 / (x * x - x);
 }
@@ -41,10 +44,14 @@ __device__ uint32_t sumRay(const Cuda::vec3& ro, const Cuda::vec3& rd, float min
 
     //divergence = 0.01;
 
-    float step = divergence * minDist * stepMult;
+    minDist = fminf(sdf::mandelbulb(r, p, 25) / 10.0f, 0.05f);
+    float minStep;
+
+    float step;
 
     for(float t = minDist; t <= maxDist; t += step){
-        step = divergence * t * stepMult;
+        minStep = divergence * t * stepMult;
+        step = fmaxf(fminf(sdf::mandelbulb(r, p, 25) / 10.0f, 0.1f), minStep); //divergence * t * stepMult;
         
         r = ro + t * rd;
 
@@ -57,7 +64,7 @@ __device__ uint32_t sumRay(const Cuda::vec3& ro, const Cuda::vec3& rd, float min
         iters = mandelbulb_iterations(z, p, r, MAXITERS, 256, sq_radius);
         //iters = jacobibrot2_iterations(Cuda::vec3(0, 0, 0), r, MAXITERS, 4, sq_radius);
 
-        if(iters == MAXITERS || opacity >= 1.0){
+        if(iters == MAXITERS || opacity >= 1.0 || step < STEPSILON){
             opacity = 1.0;
             break;
         }/*else{
@@ -68,7 +75,7 @@ __device__ uint32_t sumRay(const Cuda::vec3& ro, const Cuda::vec3& rd, float min
 
         float c = iters / MAXITERS;
 
-        weight = fmaxf( /*(1 - opacity) */ (fminf(iteration_band_normalize(iters, p, 256, 20, 5), 20 / step) * step * opacityMult * 0.002), minOpacity);
+        weight = fmaxf( /*(1 - opacity) */ ((iteration_band_normalize(iters, p, 256, 20, 10)) * step * opacityMult * 0.02), minOpacity);
         
         color_accum += weight * argb_to_vec3(Cuda::rainbow(c));//argb_to_vec3(0xffffffff);
 
@@ -124,11 +131,21 @@ extern "C" void render_volume(
     const Cuda::vec3& lightPos,
     const int max_raymarch_iters, const int max_mandelbulb_iters,
     const float p,
+    const int supersample,
     uint32_t* colors
 ){
+    Cuda::ivec2 wh_in = wh * supersample;
+
     // Defines thread and block sizes for kernel launch
     dim3 threads(16, 16);
-    dim3 block((wh.x + threads.x - 1) / threads.x, (wh.y + threads.y - 1) / threads.y);
+    dim3 block((wh_in.x + threads.x - 1) / threads.x, (wh_in.y + threads.y - 1) / threads.y);
 
-    volumeRay<<<block, threads>>>(wh, pos, normalize(camera), fov, Cuda::vec3(-2, -2, -2), Cuda::vec3(2, 2, 2), 0.002, 8, lightPos, max_raymarch_iters, max_mandelbulb_iters, p, colors);
+    unsigned int* render_frame;
+    cudaMalloc(&render_frame, wh_in.x * wh_in.y * sizeof(unsigned int));
+
+    volumeRay<<<block, threads>>>(wh_in, pos, normalize(camera), fov, Cuda::vec3(-2, -2, -2), Cuda::vec3(2, 2, 2), 0.002, 8, lightPos, max_raymarch_iters, max_mandelbulb_iters, p, render_frame);
+
+    postprocess_frame(wh_in, wh, render_frame, colors);
+
+    cudaFree(render_frame);
 }

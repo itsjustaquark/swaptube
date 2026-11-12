@@ -133,7 +133,7 @@ namespace sdf{
         return (q.u * q.u + q.i * q.i + q.j * q.j + q.k * q.k);
     }
 
-    __device__ Cuda::quat qSquare(Cuda::quat q)
+    __device__ static Cuda::quat qSquare(Cuda::quat q)
     {
         return Cuda::quat(q.u*q.u - q.i*q.i - q.j*q.j - q.k*q.k, 2.0*q.u*q.i, 2.0*q.u*q.j, 2.0*q.u*q.k);
     }

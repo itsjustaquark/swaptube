@@ -6,6 +6,7 @@ extern "C" void render_raymarch(
     const vec3& lightPos,
     const int max_raymarch_iterations, const int max_mandelbulb_iterations,
     const int sdfID, const float sdflerp,
+    const int supersample,
     uint32_t* colors
 );
 
@@ -26,7 +27,8 @@ MandelbulbScene::MandelbulbScene(const vec2& dimensions) : Scene(dimensions) {
         {"max_raymarch_iterations", "200"},
         {"max_mandelbulb_iterations", "50"},
         {"sdfID", "1"},
-        {"sdflerp", "0"}
+        {"sdflerp", "0"},
+        {"supersample", "2"}
     });
 };
 
@@ -40,6 +42,7 @@ void MandelbulbScene::draw(){
         vec3(state["light_x"], state["light_y"], state["light_z"]), 
         state["max_raymarch_iterations"], state["max_mandelbulb_iterations"],
         state["sdfID"], state["sdflerp"],
+        state["supersample"],
         gpu_pix.get_ptr()
     );
 }

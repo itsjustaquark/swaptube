@@ -6,12 +6,13 @@ extern "C" void render_volume(
     const vec3& lightPos,
     const int max_raymarch_iters, const int max_mandelbulb_iters,
     float p,
+    const int supersample,
     unsigned int* colors
 );
 
 VolumetricScene::VolumetricScene(const vec2& dimensions) : Scene(dimensions){
     manager.set({
-        {"x", "0"},
+        {"x", "-0.75"},
         {"y", "0"},
         {"z", "0"},
         {"d", "4"},
@@ -25,7 +26,8 @@ VolumetricScene::VolumetricScene(const vec2& dimensions) : Scene(dimensions){
         {"light_z", "-2"}, 
         {"max_raymarch_iterations", "127"},
         {"max_mandelbulb_iterations", "5"},
-        {"power", "2"}
+        {"power", "2"},
+        {"supersample", "1"}
     });
 };
 
@@ -39,6 +41,7 @@ void VolumetricScene::draw(){
         vec3(state["light_x"], state["light_y"], state["light_z"]), 
         state["max_raymarch_iterations"], state["max_mandelbulb_iterations"],
         state["power"],
+        state["supersample"],
         gpu_pix.get_ptr()
     );
 }

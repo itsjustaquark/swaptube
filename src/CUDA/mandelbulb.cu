@@ -2,6 +2,7 @@
 #include "../Host_Device_Shared/vec.h"
 #include "color.cuh"
 #include "common_graphics.cuh"
+#include "postprocess.cuh"
 #include "fractal_sdf.cuh"
 
 const float EPSILON = 1e-4f;
@@ -125,11 +126,21 @@ extern "C" void render_raymarch(
     const Cuda::vec3& lightPos,
     const int max_raymarch_iters, const int max_mandelbulb_iters,
     const int sdfID, const float sdflerp,
+    const int supersample,
     uint32_t* d_colors
 ){
+    Cuda::ivec2 wh_in = wh * supersample;
+
     // Defines thread and block sizes for kernel launch
     dim3 threads(16, 16);
-    dim3 block((wh.x + threads.x - 1) / threads.x, (wh.y + threads.y - 1) / threads.y);
+    dim3 block((wh_in.x + threads.x - 1) / threads.x, (wh_in.y + threads.y - 1) / threads.y);
 
-    runRaymarch<<<block, threads>>>(wh, pos, normalize(camera), fov, lightPos, max_raymarch_iters, max_mandelbulb_iters, sdfID, sdflerp, d_colors);
+    unsigned int* render_frame;
+    cudaMalloc(&render_frame, wh_in.x * wh_in.y * sizeof(unsigned int));
+
+    runRaymarch<<<block, threads>>>(wh_in, pos, normalize(camera), fov, lightPos, max_raymarch_iters, max_mandelbulb_iters, sdfID, sdflerp, render_frame);
+
+    postprocess_frame(wh_in, wh, render_frame, d_colors);
+
+    cudaFree(render_frame);
 }

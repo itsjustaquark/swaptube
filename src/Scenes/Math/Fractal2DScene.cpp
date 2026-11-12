@@ -8,6 +8,7 @@ extern "C" void fractal_2D_render(
     float x[28], // x coordinate micro parameter multipliers
     float y[28], // y coordinate micro parameter multipliers
     const float sub_dimensions_x, const float sub_dimensions_y,
+    const int subdivisions, const float subdivision_spread,
     const char burning, const char conj,
     const int param_mode,
     const int max_iterations,
@@ -46,6 +47,7 @@ Fractal2DScene::Fractal2DScene(const vec2& dimensions) : Scene(dimensions){
         {"a3ry", "0"}, {"a3iy", "0"}, {"ac3ry", "0"}, {"ac3iy", "0"}, {"x3ry", "0"}, {"x3iy", "0"},
         {"a4ry", "0"}, {"a4iy", "0"}, {"ac4ry", "0"}, {"ac4iy", "0"}, {"x4ry", "0"}, {"x4iy", "0"},
         {"cry", "0"}, {"ciy", "2"},
+        {"subdivisions", "1"}, {"subdivision_spread", "1"},
         {"sub_dimensions_x", "1"}, {"sub_dimensions_y", "1"},
         {"burning", "0"},
         {"conj", "0"},
@@ -147,6 +149,7 @@ void Fractal2DScene::draw(){
         x_params,
         y_params,
         state["sub_dimensions_x"], state["sub_dimensions_y"],
+        state["subdivisions"], state["subdivision_spread"],
         state["burning"], state["conj"],
         state["fractal_mode"],
         state["max_iterations"],
